@@ -33,10 +33,10 @@
 static int isAlfanum(const char* cadena) {
 	for (int i = 0; i < strlen(cadena); i++) {
 		if (!isalnum(cadena[i])) {
-			return 0; // No es alfanumérico
+			return 0; // is not alfanumeric
 		}
 	}
-	return 1; // Es alfanumérico
+	return 1; // is alfanumeric
 }
 int main(int *argc, char *argv[])
 {
@@ -74,7 +74,13 @@ int main(int *argc, char *argv[])
 		return(0);
 	}// Fin Inicialización Windows Sockets
 	
-	sockfd=socket(PF_INET,SOCK_DGRAM,0);
+	sockfd=socket(PF_INET,SOCK_DGRAM,0); //SOCKET create a new socket
+	/*
+	PARAMENTERS: 
+	1) the first paramenter "PF_INET" specify the address family, in this case IPv4
+	2) the second one specify the type for the new socket. In this case the "SOCK_DGRAM" that allows datagrams and it utilizes the UDP protocol
+	3) the last one finger the protocol that will be used. In this case was specified the value "0" that means any protocol will be specified now and the service provider will choose the protocol that will be used
+	*/
 	if(sockfd==INVALID_SOCKET){
 		printf("SERVIDOR UDP> Error \r\n");
 	}else{
@@ -86,14 +92,20 @@ int main(int *argc, char *argv[])
 		//server_in.sin_addr.s_addr=inet_addr(iplocal);
 		inet_pton(AF_INET,iplocal,&server_in.sin_addr.s_addr);
 		
-		if(bind(sockfd,(struct sockaddr *)&server_in,sizeof(server_in))==SOCKET_ERROR){
+		if(bind(sockfd,(struct sockaddr *)&server_in,sizeof(server_in))==SOCKET_ERROR){ // SOCKET the function "bind" associate an local address to a socket
+			/*
+			PARAMENTERS:
+			1) identify an independent socket
+			2) a point to a sockaddr structure of the local address to be assigned to the bound socket
+			3) the lenght, in bytes, of the value that is pointed to addr
+			*/
 			printf("SERVIDOR UDP> Error %d:\r\n",GetLastError());
 		}else{
 			printf("SERVIDOR UDP> Bienvenido al Servidor de Eco Sencillo UDP\r\n");
 
 			while(1){//Bucle infinito de servicio
 				input_l=sizeof(input_in);
-				recibidos=recvfrom(sockfd,buffer_in,2047,0,(struct sockaddr *)&input_in,&input_l);
+				recibidos=recvfrom(sockfd,buffer_in,2047,0,(struct sockaddr *)&input_in,&input_l); // SOCKET receive a datagram 
 				if(recibidos!=SOCKET_ERROR){
 					char peer[32]="";
 					buffer_in[recibidos]=0;
@@ -183,6 +195,10 @@ int main(int *argc, char *argv[])
 				}//Si hay un error de recepción se silencia
 			}//Fin bucle del servicio
 		}	
-		closesocket(sockfd);
+		closesocket(sockfd); //SOCKET closes a existent socket
+		/*
+		PARAMETERS: 
+		1) the socket that will close
+		*/
 	}//fin sockfd==INVALID_SOCKET
 }//fin main
