@@ -46,36 +46,29 @@ static int isAlfanum(const char* cadena) {
 }
 
 //function to verify the Log In data
-static int log_in(char command[10], char user_input[1024], int status) {
-	char user[16];
-	char pass[16];
+static int log_in(char command[10], char user_input[1024], int status, char user[16], char pass[16]) {
 
 
 	if (strcmp(command, "LOGIN") == 0) { //the method format is correct
 
-		// Taking the arguments "user" and "password" of user_input
-		if (sscanf_s(user_input, "%s %s", user, sizeof(user), pass, sizeof(pass))) {
+		if (strlen(user) < 4 || strlen(user) > 16 || isAlfanum(user) == 0) { // the user format is not correct
+			return 1;
 
-			if (strlen(user) < 4 || strlen(user) > 16 || isAlfanum(user) == 0) { // the user format is not correct
-				return 1;
+		}
+		else {
+			if (strlen(pass) < 4 || strlen(pass) > 16 || isAlfanum(pass) == 0) { //the password format is not correct
+				return 2;
 
 			}
 			else {
-				if (strlen(pass) < 4 || strlen(pass) > 16 || isAlfanum(pass) == 0) { //the password format is not correct
-					return 2;
-
+				if (strcmp(user, "agsc0001") == 0 && strcmp(pass, "z1089913v") == 0) { //the login and password is correct to log in
+					printf("Login valido - Usuario: %s\n", user);
+					return 0;
 				}
-				else {
-					if (strcmp(user, "user") == 0 && strcmp(pass, "1234") == 0) { //the login and password is correct to log in
-						printf("Login valido - Usuario: %s\n", user);
-						return 0;
-					}
-					else { //The login is wrong
-						printf("Login invalido - Usuario: %s\n", user);
-						return 3;
-					}
+				else { //The login is wrong
+					printf("Login invalido - Usuario: %s\n", user);
+					return 3;
 				}
-
 			}
 		}
 	}
@@ -156,6 +149,8 @@ int main(int *argc, char *argv[])
 					char peer[32]=""; //it saves the client address
 					buffer_in[recibidos]=0; //creating a buffer to recieve the data
 					int status_code; //variable to recieve the satus of request
+					char user[16];
+					char pass[16];
 
 					inet_ntop(AF_INET, &input_in.sin_addr, peer, sizeof(peer)); //adding the client adress into "peer"
 					printf("SERVIDOR UDP> Recibido de %s %d: %s\r\n",peer,ntohs(input_in.sin_port),buffer_in);
@@ -169,16 +164,22 @@ int main(int *argc, char *argv[])
 							//The data is in "buffer_in", so we are taking the command at the first argument and saving the parameterns in user_input
 							sscanf_s(buffer_in, "%s %[^\r\n]", command, sizeof(command), user_input, sizeof(user_input)); 
 
-							status_code = log_in(command, user_input, status); //it recieves the satatus
+							if (sscanf_s(user_input, "%s %s", user, sizeof(user), pass, sizeof(pass))) { //saving the pass and the user
+								status_code = log_in(command, user_input, status, user, pass); //it recieves the satatus
 
-							if (status_code == 0) { //it is Ok
-								sprintf_s(buffer_out, sizeof(buffer_out), "OK CRLF\n");
-								status = AUTH; // changing the status for the client sends a ECHO in the nest request
+								if (status_code == 0) { //it is Ok
+									sprintf_s(buffer_out, sizeof(buffer_out), "OK %s CRLF\n", user);
+									status = AUTH; // changing the status for the client sends a ECHO in the nest request
+								}
+								else { //it is an Error
+									//We modificated the ABNF "ER CRLF" to "ER SP ERROR_CODE CRLF".
+									sprintf_s(buffer_out, sizeof(buffer_out), "ER %d CRLF\n", status_code);
+								}
 							}
-							else { //it is an Error
-								//We modificated the ABNF "ER CRLF" to "ER SP ERROR_CODE CRLF".
-								sprintf_s(buffer_out, sizeof(buffer_out), "ER %d CRLF\n", status_code);
+							else {
+								sprintf_s(buffer_out, sizeof(buffer_out), "ER 5 CRLF\n");
 							}
+							
 							
 							break;
 
@@ -200,21 +201,28 @@ int main(int *argc, char *argv[])
 							*/
 
 							else {
-								status_code = log_in(command, user_input, status); //it recieves the satatus
-								if (status_code == 0) { //it is Ok
-									sprintf_s(buffer_out, sizeof(buffer_out), "OK CRLF\n");
-									status = AUTH; // changing the status for the client sends a ECHO in the nest request
+								sscanf_s(buffer_in, "%s %[^\r\n]", command, sizeof(command), user_input, sizeof(user_input));
+								if (sscanf_s(user_input, "%s %s", user, sizeof(user), pass, sizeof(pass))) { //saving the pass and the user
+									status_code = log_in(command, user_input, status, user, pass); //it recieves the satatus
+									if (status_code == 0) { //it is Ok
+										sprintf_s(buffer_out, sizeof(buffer_out), "OK %s CRLF\n", user);
+										status = AUTH; // changing the status for the client sends a ECHO in the nest request
+									}
+									else { //it is an Error
+										//We modificated the ABNF "ER CRLF" to "ER SP ERROR_CODE CRLF".
+										/*
+											Error type:
+											1 = Caracteres del usuario invalidos.
+											2 = Caracteres de la clave invalidos.
+											3 = Clave o usuario incorrecto.
+											4 = Comando inválido.
+											5 = wrong parameters counting 
+										*/
+										sprintf_s(buffer_out, sizeof(buffer_out), "ER %d CRLF\n", status_code);
+									}
 								}
-								else { //it is an Error
-									//We modificated the ABNF "ER CRLF" to "ER SP ERROR_CODE CRLF".
-									/*
-										Error type:
-										1 = Caracteres del usuario invalidos.
-										2 = Caracteres de la clave invalidos.
-										3 = Clave o usuario incorrecto.
-										4 = Comando inválido.
-									*/
-									sprintf_s(buffer_out, sizeof(buffer_out), "ER %d CRLF\n", status_code);
+								else {
+									sprintf_s(buffer_out, sizeof(buffer_out), "ER 5 CRLF\n");
 								}
 							}
 							break;
