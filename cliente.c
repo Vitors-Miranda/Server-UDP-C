@@ -176,6 +176,7 @@ int main(int *argc, char *argv[]){
 											2 = Caracteres de la clave invalidos.
 											3 = Clave o usuario incorrecto.
 											4 = Comando inválido.
+											5 = Número de parámetros invalido.
 											*/
 
 											//ER CODE CRLF. We modificated it so that the server sends a code
@@ -195,6 +196,9 @@ int main(int *argc, char *argv[]){
 												break;
 											case 4:
 												printf("CLIENTE UDP> Inicie session primero. \n");
+												break;
+											case 5:
+												printf("CLIENTE UDP> Invalid number of parameters. \n");
 												break;
 											default:
 												printf("CLIENTE UDP> Error no reconocido. \n");
