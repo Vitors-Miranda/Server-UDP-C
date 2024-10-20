@@ -26,18 +26,66 @@
 #define UDP_SERVER_PORT	60000//Puerto en el que el servidor recibirá peticiones
 
 #pragma comment(lib, "Ws2_32.lib")//Enlaza la biblioteca Ws2_32.lib
-#define NO_AUTH 0
-#define AUTH 1
 
-//function to verify if is alphanumeric
+#define NO_AUTH 0 //variable for the case when the client is not logged in.
+#define AUTH 1 //variable for the case when the client is logged in.
+
+ //function to verify if it is alphanumeric
 static int isAlfanum(const char* cadena) {
+
+	//Traversing the letters of the word
 	for (int i = 0; i < strlen(cadena); i++) {
+
+
 		if (!isalnum(cadena[i])) {
-			return 0; // is not alfanumeric
+			return 0; // it is not alfanumeric
+		}
+
+	}
+	return 1; // it is alfanumeric
+}
+
+//function to verify the Log In data
+static int log_in(char command[10], char user_input[1024], int status) {
+	char user[16];
+	char pass[16];
+
+
+	if (strcmp(command, "LOGIN") == 0) { //the method format is correct
+
+		// Taking the arguments "user" and "password" of user_input
+		if (sscanf_s(user_input, "%s %s", user, sizeof(user), pass, sizeof(pass))) {
+
+			if (strlen(user) < 4 || strlen(user) > 16 || isAlfanum(user) == 0) { // the user format is not correct
+				return 1;
+
+			}
+			else {
+				if (strlen(pass) < 4 || strlen(pass) > 16 || isAlfanum(pass) == 0) { //the password format is not correct
+					return 2;
+
+				}
+				else {
+					if (strcmp(user, "user") == 0 && strcmp(pass, "1234") == 0) { //the login and password is correct to log in
+						printf("Login valido - Usuario: %s\n", user);
+						return 0;
+					}
+					else { //The login is wrong
+						printf("Login invalido - Usuario: %s\n", user);
+						return 3;
+					}
+				}
+
+			}
 		}
 	}
-	return 1; // is alfanumeric
+
+	else { //The client sends other method when the server is waiting for a LOGIN.
+		printf("El cliente debe conectarse primero: %s\n", command);
+		return 4;
+	}
 }
+
 int main(int *argc, char *argv[])
 {
 	// Variables de incialización de los Windows Sockets
@@ -50,8 +98,6 @@ int main(int *argc, char *argv[])
 	int input_l;
 	char buffer_in[2048], buffer_out[2048];
 	char command[10];
-	char user[16];
-	char pass[16];
 	char user_input[1024];
 	int recibidos=0;
 	int enviados=0;
@@ -107,70 +153,36 @@ int main(int *argc, char *argv[])
 				input_l=sizeof(input_in);
 				recibidos=recvfrom(sockfd,buffer_in,2047,0,(struct sockaddr *)&input_in,&input_l); // SOCKET receive a datagram 
 				if(recibidos!=SOCKET_ERROR){
-					char peer[32]="";
-					buffer_in[recibidos]=0;
-					inet_ntop(AF_INET, &input_in.sin_addr, peer, sizeof(peer));
+					char peer[32]=""; //it saves the client address
+					buffer_in[recibidos]=0; //creating a buffer to recieve the data
+					int status_code; //variable to recieve the satus of request
+
+					inet_ntop(AF_INET, &input_in.sin_addr, peer, sizeof(peer)); //adding the client adress into "peer"
 					printf("SERVIDOR UDP> Recibido de %s %d: %s\r\n",peer,ntohs(input_in.sin_port),buffer_in);
 
 					if(ntohs(input_in.sin_port)==UDP_CLIENT_PORT){// Se comprueba que el mensaje llegue desde el puerto típico para
 																  // este servicio, el 6001. Si no es así no se lleva a cabo ninguna
 																  // acción.
 						switch (status){
-						case NO_AUTH:
+						case NO_AUTH: // The client is not logged
 
 							//The data is in "buffer_in", so we are taking the command at the first argument and saving the parameterns in user_input
-							sscanf_s(buffer_in, "%s %[^\r\n]", command, sizeof(command), user_input, sizeof(user_input));
+							sscanf_s(buffer_in, "%s %[^\r\n]", command, sizeof(command), user_input, sizeof(user_input)); 
 
-							if (strcmp(command, "LOGIN") == 0) {
+							status_code = log_in(command, user_input, status); //it recieves the satatus
 
-								// We are taking the arguments one by one of user_input
-								if(sscanf_s(user_input, "%s %s", user, sizeof(user), pass, sizeof(pass))){
-
-									//IF user is not formatted
-									if (strlen(user) < 4 || strlen(user) > 16 || isAlfanum(user) == 0) {
-
-										//We modificated the ABNF "ER CRLF" to "ER SP ERROR_CODE CRLF".
-										sprintf_s(buffer_out, sizeof(buffer_out), "ER 1 CRLF\n");
-
-									} else{
-										//IF password is not formatted
-										if (strlen(pass) < 4 || strlen(pass) > 16 || isAlfanum(pass) == 0) {
-
-											//We modificated the ABNF "ER CRLF" to "ER SP ERROR_CODE CRLF".
-											sprintf_s(buffer_out, sizeof(buffer_out), "ER 2 CRLF\n");
-
-										}else{
-											// If login and password are correct
-											if (strcmp(user, "user") == 0 && strcmp(pass, "1234") == 0) {
-												printf("Login valido - Usuario: %s\n", user);
-												sprintf_s(buffer_out, sizeof(buffer_out), "OK %s CRLF\n", user);
-												status = AUTH;
-											}
-											//If login is incorrect return ER
-											else {
-												printf("Login invalido - Usuario: %s\n", user);
-
-												//We modificated the ABNF "ER CRLF" to "ER SP ERROR_CODE CRLF".
-												sprintf_s(buffer_out, sizeof(buffer_out), "ER 3 CRLF\n");
-											}
-										}
-
-									}
-								}
+							if (status_code == 0) { //it is Ok
+								sprintf_s(buffer_out, sizeof(buffer_out), "OK CRLF\n");
+								status = AUTH; // changing the status for the client sends a ECHO in the nest request
 							}
-							else {
-								printf("Comando inválido: %s\n", command);
-								sprintf_s(buffer_out, sizeof(buffer_out), "ER Comando inválido\n");
+							else { //it is an Error
+								//We modificated the ABNF "ER CRLF" to "ER SP ERROR_CODE CRLF".
+								sprintf_s(buffer_out, sizeof(buffer_out), "ER %d CRLF\n", status_code);
 							}
-
-
-							enviados = sendto(sockfd, buffer_out, (int)strlen(buffer_out), 0, (struct sockaddr*)&input_in, sizeof(input_in));
-							if (enviados == SOCKET_ERROR) {
-								printf("SERVIDOR UDP> Error al enviar la respuesta.");
-							}
+							
 							break;
 
-						case AUTH:
+						case AUTH: //case the client is logged in
 
 							sscanf_s(buffer_in, "%s %d %[^\r]s\r\n", command, sizeof(command), &n_secuencia, user_input, sizeof(user_input));
 
@@ -179,17 +191,37 @@ int main(int *argc, char *argv[])
 								sprintf_s(buffer_out, sizeof(buffer_out), "OK %d %s\r\n", n_secuencia, user_input);
 
 							}
+
+							/*
+							If the server is requesting an echo and the client sends other method,
+							it means that the client is trying to log in. Probably, the client lost
+							the conexion and other client begins a request. So, the server sends 
+							the data for the Log In Method.
+							*/
+
 							else {
-								printf("SERVIDOR UDP> Comando no reconocido\r\n");
-							}
-
-
-							//ECHO
-							enviados = sendto(sockfd, buffer_out, (int)strlen(buffer_out), 0, (struct sockaddr*)&input_in, sizeof(input_in));
-							if (enviados == SOCKET_ERROR) {
-								printf("SERVIDOR UDP> Error al enviar la respuesta.");
+								status_code = log_in(command, user_input, status); //it recieves the satatus
+								if (status_code == 0) { //it is Ok
+									sprintf_s(buffer_out, sizeof(buffer_out), "OK CRLF\n");
+									status = AUTH; // changing the status for the client sends a ECHO in the nest request
+								}
+								else { //it is an Error
+									//We modificated the ABNF "ER CRLF" to "ER SP ERROR_CODE CRLF".
+									/*
+										Error type:
+										1 = Caracteres del usuario invalidos.
+										2 = Caracteres de la clave invalidos.
+										3 = Clave o usuario incorrecto.
+										4 = Comando inválido.
+									*/
+									sprintf_s(buffer_out, sizeof(buffer_out), "ER %d CRLF\n", status_code);
+								}
 							}
 							break;
+						}
+						enviados = sendto(sockfd, buffer_out, (int)strlen(buffer_out), 0, (struct sockaddr*)&input_in, sizeof(input_in)); //it sends the OK or ER to the client
+						if (enviados == SOCKET_ERROR) {
+							printf("SERVIDOR UDP> Error al enviar la respuesta.");
 						}
 					}
 				}//Si hay un error de recepción se silencia

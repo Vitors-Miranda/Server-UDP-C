@@ -27,17 +27,23 @@
 
 #define UDP_CLIENT_PORT	60001
 #define UDP_SERVER_PORT	60000
-#define NO_AUTH 0
-#define AUTH 1
 
-//function to verify if is alphanumeric
+#define NO_AUTH 0 //variable for the case when the client is not logged in.
+#define AUTH 1 //variable for the case when the client is logged in.
+
+//function to verify if it is alphanumeric
 static int isAlfanum(const char* cadena) {
+
+	//Traversing the letters of the word
 	for (int i = 0; i < strlen(cadena); i++) {
+
+
 		if (!isalnum(cadena[i])) {
-			return 0; // No es alfanumérico
+			return 0; // it is not alfanumeric
 		}
+
 	}
-	return 1; // Es alfanumérico
+	return 1; // it is alfanumeric
 }
 
 int main(int *argc, char *argv[]){
@@ -62,7 +68,6 @@ int main(int *argc, char *argv[]){
 	int err=0;
 	char user[16], pass[16];
 	int status = 0;
-	int error;
 
 	//Inicialización de idioma
 	setlocale(LC_ALL, "es-ES");
@@ -108,79 +113,103 @@ int main(int *argc, char *argv[]){
 				
 				inet_pton(AF_INET,ipdest,&server_in.sin_addr.s_addr);
 
-			do{// Se estarán enviando mensajes de eco hasta que se pulse solo un enter
+			do{ // Se estarán enviando mensajes de eco hasta que se pulse solo un enter
+
 				switch (status) {
 
-					//If the user is not logged
-					case NO_AUTH:
+					case NO_AUTH: //The client is not logged in
 
 						//User input
 						printf("CLIENTE UDP> Introduza el usuario : \n");
 						gets_s(user, sizeof(user));
 
-						//Validate user
-						if (strlen(user) < 4 || strlen(user) > 16 || isAlfanum(user) == 0){
-							printf("Error: el usuario debe tener entre 4 y 16 caracteres y ser alfanumerico.\n");
+						//Validate the  user by length and alphanumeric characters.
+						if (strlen(user) < 4 || strlen(user) > 16 || isAlfanum(user) == 0){ //the user is not in the correct format
+							printf("CLIENTE UDP> el usuario debe tener entre 4 y 16 caracteres y ser alfanumerico.\n");
 						
 						
-						}else {
+						}else { //the user's format is ok
+
 							//password input
 							printf("CLIENTE UDP> Introduza la clave: \n");
 							gets_s(pass, sizeof(pass));
 
-							//Validate password
-							if (strlen(pass) < 4 || strlen(pass) > 16 || isAlfanum(pass) == 0) {
-								printf("Error: la clave debe tener entre 4 y 16 caracteres y ser alfanumerico.\n");
+							//Validate the  password by length and alphanumeric characters.
 
-							} else {
+							if (strlen(pass) < 4 || strlen(pass) > 16 || isAlfanum(pass) == 0) { //The password is not in the correct format
+								printf("CLIENTE UDP> la clave debe tener entre 4 y 16 caracteres y ser alfanumerico.\n");
 
-								//Sending the data to validate it
-								sprintf_s(buffer_out, sizeof(buffer_out), "LOGIN %s %s CRLF\r\n", user, pass);
-								enviados = sendto(sockfd, buffer_out, (int)strlen(buffer_out), 0, (struct sockaddr*)&server_in, sizeof(server_in));
+							} else { //both inputs are properly formatted
 
-								if (enviados != SOCKET_ERROR) {
-									printf("CLIENTE UDP> Enviados %d bytes para a autenticacion\r\n\n", enviados);
+								
+								sprintf_s(buffer_out, sizeof(buffer_out), "LOGIN %s %s CRLF\r\n", user, pass); //Formatting the data correctly
+								enviados = sendto(sockfd, buffer_out, (int)strlen(buffer_out), 0, (struct sockaddr*)&server_in, sizeof(server_in)); //Sending the data to validate it
+
+								if (enviados != SOCKET_ERROR) { //there was no error (send data)
+
+									printf("CLIENTE UDP> Enviados %d bytes para a autenticacion\r\n\n", enviados); 
 									in_len = sizeof(buffer_in);
 									input_l = sizeof(input_in);
 
-									//Data recieved
-									recibidos = recvfrom(sockfd, buffer_in, in_len, 0, (struct sockaddr*)&input_in, &input_l);
-									if (recibidos != SOCKET_ERROR) {
-										char peer[32] = "";
-										int r_secuencia = 0;
-										char eco[1024] = "";
-										buffer_in[recibidos] = 0;
+									
+									recibidos = recvfrom(sockfd, buffer_in, in_len, 0, (struct sockaddr*)&input_in, &input_l); //Recieving the server response 
 
-										inet_ntop(AF_INET, &input_in.sin_addr, peer, sizeof(peer));
+									if (recibidos != SOCKET_ERROR) { //there was no error (recieve data)
+										char peer[32] = ""; // recieve the server address 
+										buffer_in[recibidos] = 0; //creating a buffer with the response size
+
+										inet_ntop(AF_INET, &input_in.sin_addr, peer, sizeof(peer)); //assign the server address to "peer".
 
 										printf("CLIENTE UDP> Recibidos %d bytes de %s %d\r\n", recibidos, peer, ntohs(input_in.sin_port));
 
-										//IF the server return OK the user will be logged, although it asks for the user and password again.
-										if (strncmp(buffer_in, "OK", 2) == 0) {
+		
+										if (strncmp(buffer_in, "OK", 2) == 0) { //The server returned OK, so the user will be logged in.
 											printf("CLIENTE UDP> %s\r\n", buffer_in);
-											status = AUTH;
+											status = AUTH; //Changing the status so that the user sends an ECHO
 										}
 										else if (strncmp(buffer_in, "ER", 2) == 0) {
+											int error_type; // variable for recieve de code that the server will return
+
 											/*
 											Error type:
 											1 = Caracteres del usuario invalidos.
 											2 = Caracteres de la clave invalidos.
 											3 = Clave o usuario incorrecto.
+											4 = Comando inválido.
 											*/
-											error = buffer_in[2] - '0';
-											printf("CLIENTE UDP>  %d \n", error);
+
+											//ER CODE CRLF. We modificated it so that the server sends a code
+											sscanf_s(buffer_in, "ER %d\r\n", &error_type); //receiving the second parameter(error code)
+
+											switch (error_type) {
+											case 1:
+												printf("CLIENTE UDP> Caracteres del usuario invalidos. \n");
+												break;
+
+											case 2:
+												printf("CLIENTE UDP> Caracteres de la clave invalidos.. \n");
+												break;
+
+											case 3:
+												printf("CLIENTE UDP> Clave o usuario incorrecto. \n");
+												break;
+											case 4:
+												printf("CLIENTE UDP> Inicie session primero. \n");
+												break;
+											default:
+												printf("CLIENTE UDP> Error no reconocido. \n");
+											}
 										}
-										else {
-											printf("CLIENTE UDP> Error no reconocido. \n");
+										else { 
+											printf("CLIENTE UDP> Error en el servidor. \n"); // The server did not repond with either OK or ER.
 										}
 									}
-									n_secuencia++;
 								}
 							}
 						}
 						break;
 
-					case AUTH:
+					case AUTH: //The client is logged in
 						printf("CLIENTE UDP> Introduzca una cadena para enviar al servidor: ");
 						gets_s(user_input, sizeof(user_input));
 						sprintf_s(buffer_out, sizeof(buffer_out), "ECHO %d %s\r\n", n_secuencia, user_input);
