@@ -46,8 +46,11 @@ static int isAlfanum(const char* cadena) {
 }
 
 //function to verify the Log In data
-static int log_in(char command[10], char user_input[1024], int status, char user[16], char pass[16]) {
-
+static int log_in(char command[10], char user_input[1024], int status, char user[16], char pass[16]) { //APLICACIÓN: verify the command of the sesion beggining and verify the format
+	/*
+	ABNF format that can be receiv:
+	"LOGIN" SP USER SP PASS CRLF
+	*/
 
 	if (strcmp(command, "LOGIN") == 0) { //the method format is correct
 
@@ -114,12 +117,12 @@ int main(int *argc, char *argv[])
 	}// Fin Inicialización Windows Sockets
 	
 	sockfd=socket(PF_INET,SOCK_DGRAM,0); //SOCKET create a new socket
-	/*
-	PARAMENTERS: 
-	1) the first paramenter "PF_INET" specify the address family, in this case IPv4
-	2) the second one specify the type for the new socket. In this case the "SOCK_DGRAM" that allows datagrams and it utilizes the UDP protocol
-	3) the last one finger the protocol that will be used. In this case was specified the value "0" that means any protocol will be specified now and the service provider will choose the protocol that will be used
-	*/
+		/*
+		PARAMENTERS: 
+		1) the first paramenter "PF_INET" specify the address family, in this case IPv4
+		2) the second one specify the type for the new socket. In this case the "SOCK_DGRAM" that allows datagrams and it utilizes the UDP protocol
+		3) the last one finger the protocol that will be used. In this case was specified the value "0" that means any protocol will be specified now and the service provider will choose the protocol that will be used
+		*/
 	if(sockfd==INVALID_SOCKET){
 		printf("SERVIDOR UDP> Error \r\n");
 	}else{
@@ -144,7 +147,16 @@ int main(int *argc, char *argv[])
 
 			while(1){//Bucle infinito de servicio
 				input_l=sizeof(input_in);
-				recibidos=recvfrom(sockfd,buffer_in,2047,0,(struct sockaddr *)&input_in,&input_l); // SOCKET receive a datagram 
+				recibidos=recvfrom(sockfd,buffer_in,2047,0,(struct sockaddr *)&input_in,&input_l); // SOCKET the function recvform receives a datagram and stores the source address
+					/*
+					PARAMETERS:
+					1) the parameter "sockfd" identify the bound socket
+					2) the second parameter "buffer_in" is a buffer to incoming data
+					3) "2047" informes the length of the buffer pointed to the second parameter 
+					4) this parameter is the flags parameter that can be used to influence the behavior of the function invocation beyond the options specified for the associated socket. In this case there'is not any flag.
+					5) (struct sockaddr *)&input_in is a parameter that point to a buffer in a sockaddr structure that will hold the source address upon return.
+					6) pointer to the size, in bytes, of the buffer pointed to by the last parameter
+					*/
 				if(recibidos!=SOCKET_ERROR){
 					char peer[32]=""; //it saves the client address
 					buffer_in[recibidos]=0; //creating a buffer to recieve the data
@@ -164,16 +176,30 @@ int main(int *argc, char *argv[])
 							//The data is in "buffer_in", so we are taking the command at the first argument and saving the parameterns in user_input
 							sscanf_s(buffer_in, "%s %[^\r\n]", command, sizeof(command), user_input, sizeof(user_input)); 
 
-							if (sscanf_s(user_input, "%s %s", user, sizeof(user), pass, sizeof(pass))) { //saving the pass and the user
+							//saving the pass and the user
+							if (sscanf_s(user_input, "%s %s", user, sizeof(user), pass, sizeof(pass))) { // APLICACION receiv the user data 
+								/* ABNF FORMAT :
+								"LOGIN" SP USER SP PASS CRLF 
+								USER = 4*16 VCHAR 
+								PASS = 4*16 VCHAR
+								*/
 								status_code = log_in(command, user_input, status, user, pass); //it recieves the satatus
 
 								if (status_code == 0) { //it is Ok
-									sprintf_s(buffer_out, sizeof(buffer_out), "OK %s CRLF\n", user);
+									sprintf_s(buffer_out, sizeof(buffer_out), "OK %s CRLF\n", user); // APLICACION sends to the user a confirmation message
+									/*
+									ABNF format:
+									"OK" SP USER CRLF
+									*/
 									status = AUTH; // changing the status for the client sends a ECHO in the nest request
 								}
 								else { //it is an Error
 									//We modificated the ABNF "ER CRLF" to "ER SP ERROR_CODE CRLF".
-									sprintf_s(buffer_out, sizeof(buffer_out), "ER %d CRLF\n", status_code);
+									sprintf_s(buffer_out, sizeof(buffer_out), "ER %d CRLF\n", status_code); // APLICACION sends a type of error to client if occurs a error on the log in
+									/*
+									ABNF format:
+									"ER" SP status_code CRLF
+									*/
 								}
 							}
 							else {
@@ -185,11 +211,15 @@ int main(int *argc, char *argv[])
 
 						case AUTH: //case the client is logged in
 
-							sscanf_s(buffer_in, "%s %d %[^\r]s\r\n", command, sizeof(command), &n_secuencia, user_input, sizeof(user_input));
+							sscanf_s(buffer_in, "%s %d %[^\r]s\r\n", command, sizeof(command), &n_secuencia, user_input, sizeof(user_input)); 
 
 							if (strcmp(command, "ECHO") == 0) {// Si el mensaje no está bien formateado tampoco se responde para evitar
 								// un gasto de recursos innecesario
-								sprintf_s(buffer_out, sizeof(buffer_out), "OK %d %s\r\n", n_secuencia, user_input);
+								sprintf_s(buffer_out, sizeof(buffer_out), "OK %d %s\r\n", n_secuencia, user_input); // APLICACION this function sends ECHO with the number of sequence and the usr input
+								/*
+								ABNF format:
+								"OK" SP sequence_number SP user_input
+								*/
 
 							}
 
@@ -205,7 +235,11 @@ int main(int *argc, char *argv[])
 								if (sscanf_s(user_input, "%s %s", user, sizeof(user), pass, sizeof(pass))) { //saving the pass and the user
 									status_code = log_in(command, user_input, status, user, pass); //it recieves the satatus
 									if (status_code == 0) { //it is Ok
-										sprintf_s(buffer_out, sizeof(buffer_out), "OK %s CRLF\n", user);
+										sprintf_s(buffer_out, sizeof(buffer_out), "OK %s CRLF\n", user); // APLICATION sends to user the confirmation mensage when the user is correctly authenticated
+										/*
+										ABNF format:
+										"OK" SP user CRLF
+										*/
 										status = AUTH; // changing the status for the client sends a ECHO in the nest request
 									}
 									else { //it is an Error
@@ -218,7 +252,11 @@ int main(int *argc, char *argv[])
 											4 = Invalid command.
 											5 = Invalid number of parameters.
 										*/
-										sprintf_s(buffer_out, sizeof(buffer_out), "ER %d CRLF\n", status_code);
+										sprintf_s(buffer_out, sizeof(buffer_out), "ER %d CRLF\n", status_code); // APLICATION sends the error type
+										/*
+										ABNF format:
+										"ER" SP status_code CRLF
+										*/
 									}
 								}
 								else {
@@ -227,7 +265,18 @@ int main(int *argc, char *argv[])
 							}
 							break;
 						}
-						enviados = sendto(sockfd, buffer_out, (int)strlen(buffer_out), 0, (struct sockaddr*)&input_in, sizeof(input_in)); //it sends the OK or ER to the client
+
+						//it sends the OK or ER to the client
+						enviados = sendto(sockfd, buffer_out, (int)strlen(buffer_out), 0, (struct sockaddr*)&input_in, sizeof(input_in)); // SOCKET this funtion sends data to specific destination
+							 /*
+							 PARAMETERS
+							 1) idetinify thee soket that will be used
+							 2) a pointer to a buffer containing the data that will be transmitted
+							 3) the length of the buffer on the last parameter
+							 4) set of flags that specify the way in which the call is made. In this case, there is not flag
+							 5) (struct sockaddr *)&input_in is a parameter that point to a buffer in a sockaddr structure that will hold the source address upon return.
+							 6) the size, in bytes, of the address pointed to by the to parameter. 
+							 */
 						if (enviados == SOCKET_ERROR) {
 							printf("SERVIDOR UDP> Error al enviar la respuesta del servidor.");
 						}
