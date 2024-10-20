@@ -172,11 +172,11 @@ int main(int *argc, char *argv[]){
 
 											/*
 											Error type:
-											1 = Caracteres del usuario invalidos.
-											2 = Caracteres de la clave invalidos.
-											3 = Clave o usuario incorrecto.
-											4 = Comando inválido.
-											5 = Número de parámetros invalido.
+											1 = Invalid user characters.
+											2 = Invalid password characters.
+											3 = Incorrect username or password.
+											4 = Invalid command.
+											5 = Invalid number of parameters.
 											*/
 
 											//ER CODE CRLF. We modificated it so that the server sends a code
@@ -241,6 +241,7 @@ int main(int *argc, char *argv[]){
 								}
 								else {
 									printf("CLIENTE UDP> Error en la respuesta");
+									status = NO_AUTH;
 								}
 							}
 						}

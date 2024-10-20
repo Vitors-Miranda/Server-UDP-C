@@ -212,11 +212,11 @@ int main(int *argc, char *argv[])
 										//We modificated the ABNF "ER CRLF" to "ER SP ERROR_CODE CRLF".
 										/*
 											Error type:
-											1 = Caracteres del usuario invalidos.
-											2 = Caracteres de la clave invalidos.
-											3 = Clave o usuario incorrecto.
-											4 = Comando inválido.
-											5 = wrong parameters counting 
+											1 = Invalid user characters.
+											2 = Invalid password characters.
+											3 = Incorrect username or password.
+											4 = Invalid command.
+											5 = Invalid number of parameters.
 										*/
 										sprintf_s(buffer_out, sizeof(buffer_out), "ER %d CRLF\n", status_code);
 									}
@@ -229,7 +229,7 @@ int main(int *argc, char *argv[])
 						}
 						enviados = sendto(sockfd, buffer_out, (int)strlen(buffer_out), 0, (struct sockaddr*)&input_in, sizeof(input_in)); //it sends the OK or ER to the client
 						if (enviados == SOCKET_ERROR) {
-							printf("SERVIDOR UDP> Error al enviar la respuesta.");
+							printf("SERVIDOR UDP> Error al enviar la respuesta del servidor.");
 						}
 					}
 				}//Si hay un error de recepción se silencia
