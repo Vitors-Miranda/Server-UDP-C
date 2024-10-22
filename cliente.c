@@ -238,6 +238,7 @@ int main(int *argc, char *argv[]){
 
 								if (r_secuencia == n_secuencia && strlen(eco) > 0) {
 									printf("CLIENTE UDP> Eco recibido: %s\r\n", eco);
+									n_secuencia++;
 								}
 								else {
 									printf("CLIENTE UDP> Error en la respuesta");
